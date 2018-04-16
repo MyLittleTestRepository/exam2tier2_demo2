@@ -22,5 +22,11 @@ $arTemplateParameters = array(
 		"TYPE" => "CHECKBOX",
 		"DEFAULT" => "Y",
 	),
+	"LINK_IBLOCK_ID" => Array(
+		"PARENT" => "BASE",
+		"NAME" => GetMessage("LINK_IBLOCK_ID"),
+		"TYPE" => "STRING",
+		"DEFAULT" => "5",
+	),
 );
 ?>
