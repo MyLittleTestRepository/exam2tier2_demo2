@@ -1,0 +1,6 @@
+ex2-108	37	link canonical
+ex2-95	42	simple admin menu for content manager
+ex2-97	133	author-news linked list
+ex2-100	11	add ib_admin to component context menu
+ex2-102	37	add multilang site
+260/240
