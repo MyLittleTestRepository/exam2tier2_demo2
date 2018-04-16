@@ -126,5 +126,14 @@ if($this->StartResultCache(false,$myID))
 	$this->includeComponentTemplate();	
 }
 
+$this->AddIncludeAreaIcon(
+    array(
+        'URL'   => '/bitrix/admin/'.CIBlock::GetAdminElementListLink($arParams['NEWS_IBLOCK_ID']),
+        'TITLE' => "ИБ в админке",
+		'IN_PARAMS_MENU' => true,
+		'IN_MENU' => false
+	)
+);
+
 if($arResult['COUNT'])
 	$APPLICATION->SetTitle(GetMessage("COUNT").$arResult['COUNT']);
