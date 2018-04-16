@@ -6,10 +6,11 @@ $arInclude=['EventHandler'];
 
 foreach($arInclude as $filename)
 {
-	$path=dirname(__FILE__).'/include/'.$filename.'.php';
+	$path=$_SERVER['DOCUMENT_ROOT'].'/local/php_interface/include/'.$filename.'.php';
 	if(file_exists($path))
 		include_once $path;
 }
+unset($arInclude);
 
 function mydebug($str,$die=false,$fname='')
 {
