@@ -10,66 +10,121 @@ if(!Loader::includeModule("iblock"))
 	return;
 }
 
-if(intval($arParams["PRODUCTS_IBLOCK_ID"]) > 0)
+if(!$USER->IsAuthorized())
+	return;
+
+//clear params
+foreach($arParams as $key=>$val)
+{
+	$val=trim($val);
+	if(is_numeric($val))
+		$val=intval($val);
+	$arParams[$key]=$val;
+}
+
+//check params
+if(!$arParams['NEWS_IBLOCK_ID'] or !$arParams['NEWS_LINK_CODE'] or !$arParams['UF_AUTHOR_CODE'])
+	return;
+
+$myID=$USER->GetID();
+if($this->StartResultCache(false,$myID))
 {
 	
-	//iblock elements
-	$arSelectElems = array (
-		"ID",
-		"IBLOCK_ID",
-		"NAME",
-	);
-	$arFilterElems = array (
-		"IBLOCK_ID" => $arParams["PRODUCTS_IBLOCK_ID"],
-		"ACTIVE" => "Y"
-	);
-	$arSortElems = array (
-			"NAME" => "ASC"
-	);
+	//get user author type
+	$arFilter=['ID'=>$myID,
+			   $arParams['UF_AUTHOR_CODE']];
+	$arSelect=[];
+	$arSelect['SELECT'][]=$arParams['UF_AUTHOR_CODE'];
+	$arSelect['FIELDS']=['ID','LOGIN'];
 	
-	$arResult["ELEMENTS"] = array();
-	$rsElements = CIBlockElement::GetList($arSortElems, $arFilterElems, false, false, $arSelectElems);
-	while($arElement = $rsElements->GetNext())
+	$Res=CUser::GetList($by, $order, $arFilter, $arSelect);
+	
+	if(!$Res->SelectedRowsCount())
 	{
-		$arResult["ELEMENTS"][] = $arElement;
+		$this->AbortResultCache();
+		return;
 	}
 	
-	//iblock sections
-	$arSelectSect = array (
-			"ID",
-			"IBLOCK_ID",
-			"NAME",
-	);
-	$arFilterSect = array (
-			"IBLOCK_ID" => $arParams["PRODUCTS_IBLOCK_ID"],
-			"ACTIVE" => "Y"
-	);
-	$arSortSect = array (
-			"NAME" => "ASC"
-	);
+	$myType=$Res->Fetch()[$arParams['UF_AUTHOR_CODE']];
+
 	
-	$arResult["SECTIONS"] = array();
-	$rsSections = CIBlockSection::GetList($arSortSect, $arFilterSect, false, $arSelectSect, false);
-	while($arSection = $rsSections->GetNext())
+	//get other users my type
+	$arFilter=['ACTIVE'=>'Y',
+			   $arParams['UF_AUTHOR_CODE']=>$myType];
+	unset($arSelect['SELECT']);
+	
+	$Res=CUser::GetList($by, $order, $arFilter, $arSelect);
+	
+	if(!$Res->SelectedRowsCount())
 	{
-		$arResult["SECTIONS"][] = $arSection;
+		$this->AbortResultCache();
+		return;
 	}
+	
+	$arUsers=&$arResult['USERS'];
+	while($user=$Res->Fetch())
+		$arUsers[$user['ID']]=$user;
+
+	
+	//get news for users my type
+	$linkPoperty='PROPERTY_'.$arParams['NEWS_LINK_CODE'];
+	$arFilter=['ACTIVE'=>'Y',
+			   "IBLOCK_ID" => $arParams['NEWS_IBLOCK_ID'],
+			   $linkPoperty => array_keys($arUsers)];
+	$arSelect=['ID',
+			   $linkPoperty,
+			   'NAME',
+			   'DATE_ACTIVE_FROM'];
+	
+	$Res=CIBlockElement::GetList('', $arFilter, false, false, $arSelect);
+	
+	if(!$Res->SelectedRowsCount())
+	{
+		$this->AbortResultCache();
+		return;
+	}
+
+	$arNews=&$arResult['NEWS'];
+	$linkValue=$linkPoperty.'_VALUE';
+	$linkValueID=$linkValue.'_ID';
+	$arMyNews=[];
+	while($news=$Res->Fetch())
+	{
+		$newsID=$news['ID'];
+
+		//find my news
+		if($news[$linkValue]==$myID)
+			$arMyNews[$newsID]=true;
+			
+		//clear my news
+		if($arMyNews[$newsID])
+		{
+			unset($arNews[$newsID]);
+			continue;
+		}
 		
-	// user
-	$arOrderUser = array("id");
-	$sortOrder = "asc";
-	$arFilterUser = array(
-		"ACTIVE" => "Y"
-	);
+		//link news to user
+		$arUsers[$news[$linkValue]]['NEWS_ID'][$newsID]=$newsID;
+		
+		//write news
+		unset($news[$linkPoperty]);
+		unset($news[$linkValue]);
+		unset($news[$linkValueID]);
+		$arNews[$newsID]=$news;
+	}
 	
-	$arResult["USERS"] = array();
-	$rsUsers = CUser::GetList($arOrderUser, $sortOrder, $arFilterUser); // выбираем пользователей
-	while($arUser = $rsUsers->GetNext())
+	//clear my
+	unset($arUsers[$myID]);
+	
+	$count=count($arNews);
+	if($count)
 	{
-		$arResult["USERS"][] = $arUser;
-	}	
+		$arResult['COUNT']=$count;
+		$this->setResultCacheKeys(['COUNT']);
+	}
 	
-	
+	$this->includeComponentTemplate();	
 }
-$this->includeComponentTemplate();	
-?>
+
+if($arResult['COUNT'])
+	$APPLICATION->SetTitle(GetMessage("COUNT").$arResult['COUNT']);
